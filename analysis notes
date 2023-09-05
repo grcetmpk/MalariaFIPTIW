@@ -1,0 +1,13 @@
+
+PRISM ICEMR Cohort (https://clinepidb.org/ce/app/workspace/analyses/DS_0ad509829e/new/download)
+- Participants had routine clinic visits roughly every 3 months and attended a study clinic any time they became ill.
+- Possible exposures: household wealth index, bednet use, food insecurity, BMI (confounded by food security, income), malaria medication given (>99%)
+- Possible outcomes: Malaria diagnosis and parasite status (>99% repeated measures), malaria diagnosis, 
+
+Possible factors driving observation times: malarial diagnosis, income, etc. 
+
+
+-> need to figure out study time frame
+-> need to filter observations/inc criteria
+-> need to create lags
+-> draw dag
