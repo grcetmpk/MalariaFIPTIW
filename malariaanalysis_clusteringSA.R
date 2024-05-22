@@ -14,19 +14,19 @@ expit <- function(x){ return(exp(x)/(1+exp(x)))}
 ### ~~~~~~~ Data Importation ~~~~~ ###
 
 ### import patient level data
-participant_baseline_data <- fread("PRISM_cohort_Participants.txt")
+participant_baseline_data <- fread("PRISMdata/PRISM_cohort_Participants.txt")
 names(participant_baseline_data) <-  gsub(" ", "_", gsub("\\[|\\]", "", 
                                                          names(participant_baseline_data)))
 ### import patient repeated measures data
-participant_repeated_data <- fread("PRISM_cohort_Participant_repeated_measures.txt")
+participant_repeated_data <- fread("PRISMdata/PRISM_cohort_Participant_repeated_measures.txt")
 names(participant_repeated_data) <-  gsub(" ", "_", gsub("\\[|\\]", "",
                                                          names(participant_repeated_data)))
 ### import household level data
-household_baseline_data <- fread("PRISM_cohort_Households.txt")
+household_baseline_data <- fread("PRISMdata/PRISM_cohort_Households.txt")
 names(household_baseline_data) <-  gsub(" ", "_", gsub("\\[|\\]", "", 
                                                        names(household_baseline_data)))
 ### import household repeated data
-household_repeated_data <- fread("PRISM_cohort_Household_repeated_measures.txt")
+household_repeated_data <- fread("PRISMdata/PRISM_cohort_Household_repeated_measures.txt")
 names(household_repeated_data) <-  gsub(" ", "_", gsub("\\[|\\]", "",
                                                        names(household_repeated_data)))
 
