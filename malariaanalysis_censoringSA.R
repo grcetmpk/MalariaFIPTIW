@@ -562,3 +562,105 @@ kable(table_demog, format = "latex", booktabs = T) %>%
 ggplot(data_children, aes(x = `Time_since_enrollment_(days)_EUPATH_0000191`, y = Participant_Id, group = Participant_Id, colour = scheduled)) +
   geom_point()
 
+
+
+## Violin plot of distribution of each weight across time. (FULL DATA)
+
+
+# 
+# Z_full <- cbind(fullpotentialdata$waternotprotected, fullpotentialdata$currentage,
+#                 fullpotentialdata$SC_Nagongera, fullpotentialdata$SC_Walukuba,
+#                 fullpotentialdata$HWI_middle, fullpotentialdata$HWI_poorest,
+#                 fullpotentialdata$FPW_Never, fullpotentialdata$FPW_Often,
+#                 fullpotentialdata$FPW_Seldom, fullpotentialdata$FPW_Sometimes,
+#                 fullpotentialdata$Dwellingtypenum,
+#                 fullpotentialdata$Persons_living_in_house_count_EUPATH_000001,
+#                 fullpotentialdata$lastmalariastatus)
+# 
+# iiw_full <- exp(cbind(fullpotentialdata$waternotprotected)%*%delta.hat)/exp(Z_full%*%gamma.hat)
+# 
+# ps_full <- expit(predict(exposuremod, fullpotentialdata))
+# iptw_full <- 1/ps_full*as.numeric(fullpotentialdata$waternotprotected)+1/(1-ps_full)*(1-as.numeric(fullpotentialdata$waternotprotected))
+# fiptiw_full <- iptw_full*iiw_full
+# 
+# fullpotentialdata$iiw <- iiw_full
+# fullpotentialdata$iptw <- iptw_full
+# fullpotentialdata$fiptiw <- fiptiw_full
+# 
+# fullweightdata_iiw <- fullpotentialdata[, c(1, 4, 41)]
+# fullweightdata_iptw <- fullpotentialdata[, c(1, 4, 42)]
+# fullweightdata_fiptiw <- fullpotentialdata[, c(1, 4, 43)]
+# #fullweightdata <- gather(data = fullweightdata, key = weightname, value = weight, iiw, iptw, fiptiw)
+# 
+# 
+# p1_full <- fullweightdata_iiw %>%
+#   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iiw)) + 
+#   geom_violin(fill = "blue") + 
+#   xlab("Time since enrollment") + 
+#   ylim(0,30) +
+#   ylab("IIW Weight Density")
+# 
+# 
+# p2_full <-fullweightdata_iptw %>%
+#   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iptw)) + 
+#   geom_violin(fill = "red") + 
+#   xlab("Time since enrollment") + 
+#   ylim(0,30) +
+#   ylab("IPTW Weight Density")
+# 
+# 
+# p3_full <-fullweightdata_fiptiw %>%
+#   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=fiptiw)) + 
+#   geom_violin(fill = "violet") + 
+#   xlab("Time since enrollment") + 
+#   ylim(0,30) +
+#   ylab("FIPTIW Weight Density")
+# 
+# ggarrange(p1_full, p2_full, p3_full, ncol = 3, nrow = 1)
+
+
+
+## violin plots (observed data)
+
+## Violin plot of distribution of each weight across time.
+
+
+observed_potentialdata$iiw <- iiw
+observed_potentialdata$iptw <- iptw
+observed_potentialdata$fiptiw <- fiptiw
+
+obsweightdata_iiw <- observed_potentialdata[, c(1, 4, 41)]
+obsweightdata_iptw <- observed_potentialdata[, c(1, 4, 42)]
+obsweightdata_fiptiw <- observed_potentialdata[, c(1, 4, 43)]
+
+p1_obs <- obsweightdata_iiw %>%
+  ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iiw)) + 
+  geom_violin(fill = "blue") + 
+  xlab("Time since enrollment") + 
+  ylim(0,30) +
+  ylab("IIW Weight Density")+
+  geom_hline(yintercept=1, linetype="dashed", 
+             color = "black")
+
+
+p2_obs <-obsweightdata_iptw %>%
+  ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iptw)) + 
+  geom_violin(fill = "red") + 
+  xlab("Time since enrollment") + 
+  ylim(0,30) +
+  ylab("IPTW Weight Density")  +
+  geom_hline(yintercept=1, linetype="dashed", 
+             color = "black")
+
+
+p3_obs <-obsweightdata_fiptiw %>%
+  ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=fiptiw)) + 
+  geom_violin(fill = "violet") + 
+  xlab("Time since enrollment") + 
+  ylim(0,30) +
+  ylab("FIPTIW Weight Density")+
+  geom_hline(yintercept=1, linetype="dashed", 
+             color = "black")
+
+ggarrange(p1_obs, p2_obs, p3_obs, ncol = 3, nrow = 1)
+
