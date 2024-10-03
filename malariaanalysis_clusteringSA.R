@@ -346,6 +346,10 @@ observed_potentialdata <- fullpotentialdata[which(fullpotentialdata$Observed == 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~Estimate weights ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+##############################################################################
+########~~~~~~~~~~~~~~~Estimate weights ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####
+##############################################################################
+
 #~~~~~~~~~~ IPTW weights
 # IPTW model should include true confounders and covariates only predictive of outcome. Do not include those only predictive of exposure
 
@@ -360,12 +364,17 @@ exposuremod <- glm(factor(waternotprotected) ~ `Age_(years)_OBI_0001169` + #`Sub
 
 summary(exposuremod)
 
+prDmod <- glm(factor(waternotprotected) ~ 1,
+              family = binomial(link = "logit"), data = observed_potentialdata)
+
+prD <- expit(summary(prDmod)$coef[[1]])
+
 ps <- expit(predict(exposuremod))
-iptw <- 1/ps*as.numeric(observed_potentialdata$waternotprotected)+1/(1-ps)*(1-as.numeric(observed_potentialdata$waternotprotected))
-summary(iptw) #max 15.11
-sum(iptw > 5)/length(iptw) #6.63%
-sum(iptw > 10)/length(iptw) #0.17%
-sum(iptw > 20)/length(iptw) #0.00%
+iptw <- prD/ps*as.numeric(observed_potentialdata$waternotprotected)+1/(1-ps)*(1-as.numeric(observed_potentialdata$waternotprotected))
+summary(iptw) #max 3.86
+sum(iptw > 5)/length(iptw) #0
+sum(iptw > 10)/length(iptw) #0
+sum(iptw > 20)/length(iptw) #0
 
 hist(iptw)
 
@@ -415,15 +424,15 @@ fiptiw <- iiw*iptw
 observed_potentialdata$fiptiw <- fiptiw
 
 hist(fiptiw)
-summary(fiptiw) #max 18.14
-sum(fiptiw > 5)/length(fiptiw) #8.95%
-sum(fiptiw > 10)/length(fiptiw) #2.01%
-sum(fiptiw > 20)/length(fiptiw) #0.00%
+summary(fiptiw) #max 7.07
+sum(fiptiw > 5)/length(fiptiw) #0
+sum(fiptiw > 10)/length(fiptiw) #0.
+sum(fiptiw > 20)/length(fiptiw) #0
 
 
 
 threshold <- quantile(fiptiw, 0.95) 
-threshold #6.73
+threshold #2.622
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Results ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
@@ -443,9 +452,10 @@ naive_CI <- paste("(", naive_CI_ll, ", ", naive_CI_ul, ")", sep = "")
 naive_CI_OR <- paste("(", naive_CI_ll_OR, ", ", naive_CI_ul_OR, ")", sep = "")
 
 
-finalmod_iptw <- glm(factor(Malaria) ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                                                                      degree=3,knots=c(terti)), data=observed_potentialdata, 
-                     family=quasibinomial(link="logit"), weights = iptw)
+finalmod_iptw <- geeglm(Malaria ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+                                                                 degree=3,knots=c(terti)), data=observed_potentialdata, id = Participant_Id,
+                        family=binomial(link="logit"), weights = iptw)
+
 iptw_ATE <- summary(finalmod_iptw)$coef[2,1]
 iptw_SE <- summary(finalmod_iptw)$coef[2,2]
 iptw_CI_ll <- round(iptw_ATE - 1.960*iptw_SE,3)
@@ -457,9 +467,9 @@ iptw_CI_OR <- paste("(", iptw_CI_ll_OR, ", ", iptw_CI_ul_OR, ")", sep = "")
 
 
 
-finalmod_iiw <- glm(factor(Malaria) ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                                                                     degree=3,knots=c(terti)), data=observed_potentialdata, 
-                    family=quasibinomial(link="logit"), weights = iiw)
+finalmod_iiw <- geeglm(Malaria ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+                                                                degree=3,knots=c(terti)), data=observed_potentialdata, 
+                       id = Participant_Id, family=binomial(link="logit"), weights = iiw)
 iiw_ATE <- summary(finalmod_iiw)$coef[2,1]
 iiw_SE <- summary(finalmod_iiw)$coef[2,2]
 iiw_CI_ll <- round(iiw_ATE - 1.960*iiw_SE,3)
@@ -472,10 +482,10 @@ iiw_CI_OR <- paste("(", iiw_CI_ll_OR, ", ", iiw_CI_ul_OR, ")", sep = "")
 
 
 
-finalmod_fiptiw <- glm(factor(Malaria) ~ factor(waternotprotected) + 
-                         bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                            degree=3,knots=c(terti)), data=observed_potentialdata,
-                       family=quasibinomial(link="logit"), weights = fiptiw)
+finalmod_fiptiw <- geeglm(Malaria ~ factor(waternotprotected) + 
+                            bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+                               degree=3,knots=c(terti)), data=observed_potentialdata, id = Participant_Id,
+                          family=binomial(link="logit"), weights = fiptiw)
 
 fiptiw_ATE <- summary(finalmod_fiptiw)$coef[2,1]
 fiptiw_SE <- summary(finalmod_fiptiw)$coef[2,2]
@@ -492,9 +502,10 @@ fiptiw_CI_OR <- paste("(", fiptiw_CI_ll_OR, ", ", fiptiw_CI_ul_OR, ")", sep = ""
 fiptiw_trimmed <- fiptiw
 fiptiw_trimmed[fiptiw_trimmed > threshold] <- threshold
 
-finalmod_fiptiw_trimmed <- glm(factor(Malaria) ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                                                                                degree=3,knots=c(terti)), data=observed_potentialdata, family=quasibinomial(link="logit"), 
-                               weights = fiptiw_trimmed)
+finalmod_fiptiw_trimmed <- geeglm(Malaria ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+                                                                           degree=3,knots=c(terti)), data=observed_potentialdata, 
+                                  family=binomial(link="logit"), id = Participant_Id,
+                                  weights = fiptiw_trimmed)
 fiptiw_trim_ATE <- summary(finalmod_fiptiw_trimmed)$coef[2,1]
 fiptiw_trim_SE <- summary(finalmod_fiptiw_trimmed)$coef[2,2]
 

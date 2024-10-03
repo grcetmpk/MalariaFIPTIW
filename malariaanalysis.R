@@ -7,7 +7,9 @@ require(knitr)
 require(kableExtra)
 require(geepack)
 require(ggplot2)
-
+require(geepack)
+require(cobalt)
+require(ggpubr)
 
 expit <- function(x){ return(exp(x)/(1+exp(x)))}
 
@@ -339,11 +341,14 @@ fullpotentialdata$Dwellingtypenum <- ifelse(fullpotentialdata$Dwelling_type_ENVO
 
 
 #createdataframe of only observed data
-observed_potentialdata <- fullpotentialdata[which(fullpotentialdata$Observed == 1), ] #same as data_children but contains some time-varying covariates that 
+observed_potentialdata <- fullpotentialdata[which(fullpotentialdata$Observed == 1), ] 
+#same as data_children but contains some time-varying covariates that 
 #were calculated when making the counterfactual data
 
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~Estimate weights ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+##############################################################################
+########~~~~~~~~~~~~~~~Estimate weights ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#####
+##############################################################################
 
 #~~~~~~~~~~ IPTW weights
 # IPTW model should include true confounders and covariates only predictive of outcome. Do not include those only predictive of exposure
@@ -359,12 +364,17 @@ exposuremod <- glm(factor(waternotprotected) ~ `Age_(years)_OBI_0001169` + #`Sub
 
 summary(exposuremod)
 
+prDmod <- glm(factor(waternotprotected) ~ 1,
+                             family = binomial(link = "logit"), data = observed_potentialdata)
+
+prD <- expit(summary(prDmod)$coef[[1]])
+
 ps <- expit(predict(exposuremod))
-iptw <- 1/ps*as.numeric(observed_potentialdata$waternotprotected)+1/(1-ps)*(1-as.numeric(observed_potentialdata$waternotprotected))
-summary(iptw) #max 10.524
-sum(iptw > 5)/length(iptw) #5.69%
-sum(iptw > 10)/length(iptw) #0.29%
-sum(iptw > 20)/length(iptw) #0.00%
+iptw <- prD/ps*as.numeric(observed_potentialdata$waternotprotected)+1/(1-ps)*(1-as.numeric(observed_potentialdata$waternotprotected))
+summary(iptw) #max 2.24
+sum(iptw > 5)/length(iptw) #0
+sum(iptw > 10)/length(iptw) #0
+sum(iptw > 20)/length(iptw) #0
 
 hist(iptw)
 
@@ -414,15 +424,15 @@ fiptiw <- iiw*iptw
 observed_potentialdata$fiptiw <- fiptiw
 
 hist(fiptiw)
-summary(fiptiw) #max 13.19
-sum(fiptiw > 5)/length(fiptiw) #8.44%
-sum(fiptiw > 10)/length(fiptiw) #0.51%
-sum(fiptiw > 20)/length(fiptiw) #0.00%
+summary(fiptiw) #max 3.28
+sum(fiptiw > 5)/length(fiptiw) #0
+sum(fiptiw > 10)/length(fiptiw) #0.
+sum(fiptiw > 20)/length(fiptiw) #0
 
 
 
 threshold <- quantile(fiptiw, 0.95) 
-threshold #6.52
+threshold #2.204
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Results ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
@@ -442,9 +452,10 @@ naive_CI <- paste("(", naive_CI_ll, ", ", naive_CI_ul, ")", sep = "")
 naive_CI_OR <- paste("(", naive_CI_ll_OR, ", ", naive_CI_ul_OR, ")", sep = "")
 
 
-finalmod_iptw <- glm(factor(Malaria) ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                                                                      degree=3,knots=c(terti)), data=observed_potentialdata, 
-                     family=quasibinomial(link="logit"), weights = iptw)
+finalmod_iptw <- geeglm(Malaria ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+                                                                      degree=3,knots=c(terti)), data=observed_potentialdata, id = Participant_Id,
+                     family=binomial(link="logit"), weights = iptw)
+
 iptw_ATE <- summary(finalmod_iptw)$coef[2,1]
 iptw_SE <- summary(finalmod_iptw)$coef[2,2]
 iptw_CI_ll <- round(iptw_ATE - 1.960*iptw_SE,3)
@@ -456,9 +467,9 @@ iptw_CI_OR <- paste("(", iptw_CI_ll_OR, ", ", iptw_CI_ul_OR, ")", sep = "")
 
 
 
-finalmod_iiw <- glm(factor(Malaria) ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+finalmod_iiw <- geeglm(Malaria ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
                                                                      degree=3,knots=c(terti)), data=observed_potentialdata, 
-                    family=quasibinomial(link="logit"), weights = iiw)
+                       id = Participant_Id, family=binomial(link="logit"), weights = iiw)
 iiw_ATE <- summary(finalmod_iiw)$coef[2,1]
 iiw_SE <- summary(finalmod_iiw)$coef[2,2]
 iiw_CI_ll <- round(iiw_ATE - 1.960*iiw_SE,3)
@@ -471,10 +482,10 @@ iiw_CI_OR <- paste("(", iiw_CI_ll_OR, ", ", iiw_CI_ul_OR, ")", sep = "")
 
 
 
-finalmod_fiptiw <- glm(factor(Malaria) ~ factor(waternotprotected) + 
+finalmod_fiptiw <- geeglm(Malaria ~ factor(waternotprotected) + 
                          bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                            degree=3,knots=c(terti)), data=observed_potentialdata,
-                       family=quasibinomial(link="logit"), weights = fiptiw)
+                            degree=3,knots=c(terti)), data=observed_potentialdata, id = Participant_Id,
+                       family=binomial(link="logit"), weights = fiptiw)
 
 fiptiw_ATE <- summary(finalmod_fiptiw)$coef[2,1]
 fiptiw_SE <- summary(finalmod_fiptiw)$coef[2,2]
@@ -491,8 +502,9 @@ fiptiw_CI_OR <- paste("(", fiptiw_CI_ll_OR, ", ", fiptiw_CI_ul_OR, ")", sep = ""
 fiptiw_trimmed <- fiptiw
 fiptiw_trimmed[fiptiw_trimmed > threshold] <- threshold
 
-finalmod_fiptiw_trimmed <- glm(factor(Malaria) ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
-                                                                                degree=3,knots=c(terti)), data=observed_potentialdata, family=quasibinomial(link="logit"), 
+finalmod_fiptiw_trimmed <- geeglm(Malaria ~ factor(waternotprotected) + bs(observed_potentialdata$`Time_since_enrollment_(days)_EUPATH_0000191`, 
+                                                                                degree=3,knots=c(terti)), data=observed_potentialdata, 
+                                  family=binomial(link="logit"), id = Participant_Id,
                                weights = fiptiw_trimmed)
 fiptiw_trim_ATE <- summary(finalmod_fiptiw_trimmed)$coef[2,1]
 fiptiw_trim_SE <- summary(finalmod_fiptiw_trimmed)$coef[2,2]
@@ -585,56 +597,55 @@ ggplot(data_children, aes(x = `Time_since_enrollment_(days)_EUPATH_0000191`, y =
 ## Violin plot of distribution of each weight across time. (FULL DATA)
 
 
+# 
+# Z_full <- cbind(fullpotentialdata$waternotprotected, fullpotentialdata$currentage,
+#                 fullpotentialdata$SC_Nagongera, fullpotentialdata$SC_Walukuba,
+#                 fullpotentialdata$HWI_middle, fullpotentialdata$HWI_poorest,
+#                 fullpotentialdata$FPW_Never, fullpotentialdata$FPW_Often,
+#                 fullpotentialdata$FPW_Seldom, fullpotentialdata$FPW_Sometimes,
+#                 fullpotentialdata$Dwellingtypenum,
+#                 fullpotentialdata$Persons_living_in_house_count_EUPATH_000001,
+#                 fullpotentialdata$lastmalariastatus)
+# 
+# iiw_full <- exp(cbind(fullpotentialdata$waternotprotected)%*%delta.hat)/exp(Z_full%*%gamma.hat)
+# 
+# ps_full <- expit(predict(exposuremod, fullpotentialdata))
+# iptw_full <- 1/ps_full*as.numeric(fullpotentialdata$waternotprotected)+1/(1-ps_full)*(1-as.numeric(fullpotentialdata$waternotprotected))
+# fiptiw_full <- iptw_full*iiw_full
+# 
+# fullpotentialdata$iiw <- iiw_full
+# fullpotentialdata$iptw <- iptw_full
+# fullpotentialdata$fiptiw <- fiptiw_full
+# 
+# fullweightdata_iiw <- fullpotentialdata[, c(1, 4, 41)]
+# fullweightdata_iptw <- fullpotentialdata[, c(1, 4, 42)]
+# fullweightdata_fiptiw <- fullpotentialdata[, c(1, 4, 43)]
 
-Z_full <- cbind(fullpotentialdata$waternotprotected, fullpotentialdata$currentage,
-                fullpotentialdata$SC_Nagongera, fullpotentialdata$SC_Walukuba,
-                fullpotentialdata$HWI_middle, fullpotentialdata$HWI_poorest,
-                fullpotentialdata$FPW_Never, fullpotentialdata$FPW_Often,
-                fullpotentialdata$FPW_Seldom, fullpotentialdata$FPW_Sometimes,
-                fullpotentialdata$Dwellingtypenum,
-                fullpotentialdata$Persons_living_in_house_count_EUPATH_000001,
-                fullpotentialdata$lastmalariastatus)
-
-iiw_full <- exp(cbind(fullpotentialdata$waternotprotected)%*%delta.hat)/exp(Z_full%*%gamma.hat)
-
-ps_full <- expit(predict(exposuremod, fullpotentialdata))
-iptw_full <- 1/ps_full*as.numeric(fullpotentialdata$waternotprotected)+1/(1-ps_full)*(1-as.numeric(fullpotentialdata$waternotprotected))
-fiptiw_full <- iptw_full*iiw_full
-
-fullpotentialdata$iiw <- iiw_full
-fullpotentialdata$iptw <- iptw_full
-fullpotentialdata$fiptiw <- fiptiw_full
-
-fullweightdata_iiw <- fullpotentialdata[, c(1, 4, 41)]
-fullweightdata_iptw <- fullpotentialdata[, c(1, 4, 42)]
-fullweightdata_fiptiw <- fullpotentialdata[, c(1, 4, 43)]
-#fullweightdata <- gather(data = fullweightdata, key = weightname, value = weight, iiw, iptw, fiptiw)
-
-
-p1_full <- fullweightdata_iiw %>%
-  ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iiw)) + 
-  geom_violin(fill = "blue") + 
-  xlab("Time since enrollment") + 
-  ylim(0,30) +
-  ylab("IIW Weight Density")
-
-
-p2_full <-fullweightdata_iptw %>%
-  ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iptw)) + 
-  geom_violin(fill = "red") + 
-  xlab("Time since enrollment") + 
-  ylim(0,30) +
-  ylab("IPTW Weight Density")
-
-
-p3_full <-fullweightdata_fiptiw %>%
-  ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=fiptiw)) + 
-  geom_violin(fill = "violet") + 
-  xlab("Time since enrollment") + 
-  ylim(0,30) +
-  ylab("FIPTIW Weight Density")
-
-ggarrange(p1_full, p2_full, p3_full, ncol = 3, nrow = 1)
+# 
+# p1_full <- fullweightdata_iiw %>%
+#   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iiw)) + 
+#   geom_violin(fill = "blue") + 
+#   xlab("Time since enrollment") + 
+#   ylim(0,30) +
+#   ylab("IIW Weight Density")
+# 
+# 
+# p2_full <-fullweightdata_iptw %>%
+#   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iptw)) + 
+#   geom_violin(fill = "red") + 
+#   xlab("Time since enrollment") + 
+#   ylim(0,30) +
+#   ylab("IPTW Weight Density")
+# 
+# 
+# p3_full <-fullweightdata_fiptiw %>%
+#   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=fiptiw)) + 
+#   geom_violin(fill = "violet") + 
+#   xlab("Time since enrollment") + 
+#   ylim(0,30) +
+#   ylab("FIPTIW Weight Density")
+# 
+# ggarrange(p1_full, p2_full, p3_full, ncol = 3, nrow = 1)
 
 
 
@@ -655,7 +666,7 @@ p1_obs <- obsweightdata_iiw %>%
   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iiw)) + 
   geom_violin(fill = "blue") + 
   xlab("Time since enrollment") + 
-  ylim(0,15) +
+  ylim(0,5) +
   ylab("IIW Weight Density")+
   geom_hline(yintercept=1, linetype="dashed", 
              color = "black")
@@ -665,7 +676,7 @@ p2_obs <-obsweightdata_iptw %>%
   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=iptw)) + 
   geom_violin(fill = "red") + 
   xlab("Time since enrollment") + 
-  ylim(0,15) +
+  ylim(0,5) +
   ylab("IPTW Weight Density")  +
   geom_hline(yintercept=1, linetype="dashed", 
                                           color = "black")
@@ -675,10 +686,24 @@ p3_obs <-obsweightdata_fiptiw %>%
   ggplot( aes(x=`Time_since_enrollment_(days)_EUPATH_0000191`, y=fiptiw)) + 
   geom_violin(fill = "violet") + 
   xlab("Time since enrollment") + 
-  ylim(0,15) +
+  ylim(0,5) +
   ylab("FIPTIW Weight Density")+
   geom_hline(yintercept=1, linetype="dashed", 
              color = "black")
 
 ggarrange(p1_obs, p2_obs, p3_obs, ncol = 3, nrow = 1)
+
+
+
+
+#### Balance diagnostics
+
+baseline <- observed_potentialdata %>% filter(Observation_type_BFO_0000015 == "Enrollment")
+baseline <- baseline %>% select(`Age_(years)_OBI_0001169`, waternotprotected, `Sub-county_in_Uganda_EUPATH_0000054`,
+                                `Household_wealth_index,_categorical_EUPATH_0000143`,
+                                Food_problems_per_week_EUPATH_0000029, Dwelling_type_ENVO_01000744, 
+                                Persons_living_in_house_count_EUPATH_0000019, lastmalariastatus)
+
+bal.tab(baseline, treat = baseline$waternotprotected, weights = baseline$fiptiw, thresholds = c(m = .1))
+
 
