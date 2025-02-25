@@ -359,8 +359,14 @@ exposuremod <- glm(factor(waternotprotected) ~ `Age_(years)_OBI_0001169` + #`Sub
 
 summary(exposuremod)
 
+prDmod <- glm(factor(waternotprotected) ~ 1,
+              family = binomial(link = "logit"), data = observed_potentialdata)
+prD <- expit(summary(prDmod)$coef[1,1])
+
 ps <- expit(predict(exposuremod))
-iptw <- 1/ps*as.numeric(observed_potentialdata$waternotprotected)+1/(1-ps)*(1-as.numeric(observed_potentialdata$waternotprotected))
+iptw <- prD/ps*as.numeric(observed_potentialdata$waternotprotected)+(1-prD)/(1-ps)*(1-as.numeric(observed_potentialdata$waternotprotected))
+
+
 summary(iptw) #max 10.524
 sum(iptw > 5)/length(iptw) #5.69%
 sum(iptw > 10)/length(iptw) #0.29%
