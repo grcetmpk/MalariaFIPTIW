@@ -67,7 +67,23 @@ data_children <- participant_repeated_data %>%
                                                       "Protected spring", "Borehole",  "Open public well",        
                                                       "Pond/lake" , "Unprotected spring"  )) #remove piped water sources
 
-# ggplot(data_children, aes(x = `Time_since_enrollment_(days)_EUPATH_0000191`, y = Participant_Id)) + geom_point(size = 0.5)
+
+#Example plot of observation times for 5 randomly selected patients
+set.seed(4632)
+plotdata <- data_children %>% select(Participant_Id, `Time_since_enrollment_(days)_EUPATH_0000191`)
+sample10ids <- sample(data_children$Participant_Id, 5, replace = F)
+data_children_sample <- data_children[which(data_children$Participant_Id %in% sample10ids), ]
+data_children_sample$Participant_Id <- rep(1:5, table(data_children_sample$Participant_Id))
+#change ids
+
+ggplot(data_children_sample, aes(x = `Time_since_enrollment_(days)_EUPATH_0000191`, y = Participant_Id)) + 
+  geom_hline(yintercept = c(1, 2, 3, 4, 5), color = "lightgrey") +
+  geom_point(size = 1) + 
+  ylab("ID") + xlab("Days") + xlim(0, 365) + theme_classic() +
+  ggtitle("Observation Dates by Participant ID")
+  
+
+
 
 
 
